@@ -1,0 +1,37 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  team      String
+  league    String
+  pc        Int      @default(0)
+  pg        Int      @default(0)
+  ntw       Int      @default(0)
+  ntr       Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([team, league])
+}
+
+model ScoringConfig {
+  id               String @id @default("default")
+  titlePoints      Float  @default(1.0)
+  runnerUpPoints   Float  @default(0.3)
+  tieBreakOrder    String @default("[\"tpct\",\"ntw\",\"apct\",\"pc\"]")
+  minMatches       Int    @default(0)
+}
+
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  password String
+  role     String @default("admin")
+}
