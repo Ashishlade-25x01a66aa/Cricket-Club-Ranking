@@ -1,3 +1,5 @@
+'use client';
+
 import { RankedTeam } from '@/lib/ranking';
 import { motion } from 'framer-motion';
 
