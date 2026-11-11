@@ -11,6 +11,7 @@ model Team {
   id        String   @id @default(uuid())
   team      String
   league    String
+  logo      String?
   pc        Int      @default(0)
   pg        Int      @default(0)
   ntw       Int      @default(0)

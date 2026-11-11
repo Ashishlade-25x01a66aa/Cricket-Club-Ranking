@@ -139,7 +139,25 @@ export default function LeaderboardTable({ teams }: { teams: RankedTeam[] }) {
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">{team.team}</td>
+                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                    <div className="flex items-center gap-2.5">
+                      {team.logo ? (
+                        <img 
+                          src={team.logo} 
+                          alt={team.team} 
+                          className="w-7 h-7 rounded-full object-contain bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-0.5 shrink-0 shadow-xs" 
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                            (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-800 ${team.logo ? 'hidden' : ''}`}>
+                        {team.team.slice(0, 2).toUpperCase()}
+                      </div>
+                      <span>{team.team}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <span className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-0.5 rounded">
                       {team.league}

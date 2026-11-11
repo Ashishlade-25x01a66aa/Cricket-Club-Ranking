@@ -38,7 +38,21 @@ export default function Podium({ topTeams }: { topTeams: RankedTeam[] }) {
           transition={{ duration: 0.5, delay: team.rank * 0.1 }}
           className="flex flex-col items-center w-28 md:w-40"
         >
-          <div className="text-center mb-2">
+          <div className="text-center mb-2 flex flex-col items-center">
+            {team.logo ? (
+              <img
+                src={team.logo}
+                alt={team.team}
+                className="w-12 h-12 rounded-full object-contain bg-white shadow-md border-2 border-gray-100 dark:border-gray-700 p-1 mb-1.5"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                  (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+                }}
+              />
+            ) : null}
+            <div className={`w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-black text-sm flex items-center justify-center mb-1.5 shadow-xs ${team.logo ? 'hidden' : ''}`}>
+              {team.team.slice(0, 2).toUpperCase()}
+            </div>
             <div className="font-bold text-lg text-gray-800 dark:text-gray-100 truncate w-full px-2" title={team.team}>
               {team.team}
             </div>

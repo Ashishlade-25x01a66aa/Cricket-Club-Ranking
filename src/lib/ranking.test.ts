@@ -14,6 +14,7 @@ function createMockTeam(team: string, league: string, pc: number, pg: number, nt
     id: team,
     team,
     league,
+    logo: null,
     pc,
     pg,
     ntw,
