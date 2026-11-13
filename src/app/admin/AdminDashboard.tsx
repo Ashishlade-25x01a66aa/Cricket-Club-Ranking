@@ -95,13 +95,13 @@ export default function AdminDashboard({
     }
   };
 
-  // Process any image source onto a 4:4 (1:1 square) canvas
-  const processToSquare4x4 = (src: string, mode: 'contain' | 'cover' = 'contain'): Promise<string> => {
+  // Process any image source onto a circular canvas
+  const processToCircularLogo = (src: string, mode: 'contain' | 'cover' = 'contain'): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        const size = 320; // 4:4 ratio square (320x320)
+        const size = 320; // Circular intake (320x320)
         const canvas = document.createElement('canvas');
         canvas.width = size;
         canvas.height = size;
@@ -113,6 +113,13 @@ export default function AdminDashboard({
 
         ctx.clearRect(0, 0, size, size);
 
+        // Circular clipping mask
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+
         const aspect = img.width / img.height;
         let dWidth = size;
         let dHeight = size;
@@ -120,8 +127,8 @@ export default function AdminDashboard({
         let dy = 0;
 
         if (mode === 'contain') {
-          // Fit entire logo within 4:4 square with gentle padding
-          const padding = size * 0.06;
+          // Fit entire logo within circular safe zone
+          const padding = size * 0.12; // safe margin within circle
           const maxDim = size - padding * 2;
           if (aspect > 1) {
             dWidth = maxDim;
@@ -133,7 +140,7 @@ export default function AdminDashboard({
           dx = (size - dWidth) / 2;
           dy = (size - dHeight) / 2;
         } else {
-          // Fill (center crop to 4:4)
+          // Fill (center crop to circular frame)
           if (aspect > 1) {
             dHeight = size;
             dWidth = size * aspect;
@@ -146,6 +153,8 @@ export default function AdminDashboard({
         }
 
         ctx.drawImage(img, dx, dy, dWidth, dHeight);
+        ctx.restore();
+
         resolve(canvas.toDataURL('image/png', 0.95));
       };
       img.onerror = () => resolve(src);
@@ -168,7 +177,7 @@ export default function AdminDashboard({
       reader.onload = async () => {
         const raw = reader.result as string;
         setRawImageSrc(raw);
-        const processed = await processToSquare4x4(raw, cropMode);
+        const processed = await processToCircularLogo(raw, cropMode);
         setLogoInput(processed);
         setIsUploadingLogo(false);
       };
@@ -188,7 +197,7 @@ export default function AdminDashboard({
     const source = rawImageSrc || logoInput;
     if (source) {
       setIsUploadingLogo(true);
-      const processed = await processToSquare4x4(source, newMode);
+      const processed = await processToCircularLogo(source, newMode);
       setLogoInput(processed);
       setIsUploadingLogo(false);
     }
@@ -502,14 +511,14 @@ export default function AdminDashboard({
             {/* Modal Body */}
             <div className="p-6 space-y-5">
               
-              {/* 4:4 Square Preview Box */}
-              <div className="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900/60 p-4 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-                <div className="relative w-32 h-32 aspect-square rounded-2xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 flex items-center justify-center overflow-hidden shadow-sm mb-2 group">
+              {/* Circular Preview Box */}
+              <div className="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900/60 p-5 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+                <div className="relative w-36 h-36 rounded-full border-4 border-blue-500/20 dark:border-blue-400/30 bg-white dark:bg-gray-800 flex items-center justify-center overflow-hidden shadow-md mb-2 group ring-4 ring-gray-100 dark:ring-gray-700/50">
                   {logoInput ? (
                     <img 
                       src={logoInput} 
-                      alt="4:4 Logo preview" 
-                      className={`w-full h-full p-2 transition-all duration-150 ${cropMode === 'cover' ? 'object-cover !p-0' : 'object-contain'}`}
+                      alt="Circular Logo preview" 
+                      className={`w-full h-full rounded-full transition-all duration-150 ${cropMode === 'cover' ? 'object-cover' : 'object-contain p-2'}`}
                       onError={(e) => {
                         (e.currentTarget as HTMLElement).style.display = 'none';
                         (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
@@ -517,57 +526,57 @@ export default function AdminDashboard({
                     />
                   ) : null}
                   <div className={`flex flex-col items-center justify-center text-gray-400 ${logoInput ? 'hidden' : ''}`}>
-                    <ImageIcon size={36} />
+                    <ImageIcon size={38} />
                     <span className="text-[11px] mt-1 font-semibold">No Logo</span>
                   </div>
-                  {/* Aspect Ratio Badge */}
-                  <div className="absolute bottom-1 right-1 bg-black/70 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                    4:4
+                  {/* Circular shape badge */}
+                  <div className="absolute bottom-1 bg-black/75 backdrop-blur-xs text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                    Circular
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    4:4 Ratio (Square)
+                    Circular Shape
                   </span>
-                  <span className="text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold px-2 py-0.5 rounded-full">
                     Auto-Formatted
                   </span>
                 </div>
 
-                {/* 4:4 Ratio Crop Mode Selector */}
+                {/* Circular Crop Mode Selector */}
                 {logoInput && (
-                  <div className="w-full mt-3 bg-gray-200/70 dark:bg-gray-800 p-1 rounded-lg flex gap-1 text-xs">
+                  <div className="w-full mt-3 bg-gray-200/70 dark:bg-gray-800 p-1 rounded-xl flex gap-1 text-xs">
                     <button
                       type="button"
                       onClick={() => toggleCropMode('contain')}
-                      className={`flex-1 py-1.5 px-2 rounded-md font-medium transition-all text-center ${
+                      className={`flex-1 py-1.5 px-2 rounded-lg font-medium transition-all text-center ${
                         cropMode === 'contain'
                           ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs font-bold'
                           : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
                       }`}
                     >
-                      Fit Logo (4:4)
+                      Fit in Circle
                     </button>
                     <button
                       type="button"
                       onClick={() => toggleCropMode('cover')}
-                      className={`flex-1 py-1.5 px-2 rounded-md font-medium transition-all text-center ${
+                      className={`flex-1 py-1.5 px-2 rounded-lg font-medium transition-all text-center ${
                         cropMode === 'cover'
                           ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs font-bold'
                           : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
                       }`}
                     >
-                      Fill / Crop (4:4)
+                      Fill Circle (Crop)
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Upload from Computer with 4:4 intake */}
+              {/* Upload from Computer with Circular intake */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
-                  Upload Image File (Auto 4:4 Intake)
+                  Upload Image File (Circular Intake)
                 </label>
                 <input 
                   type="file" 
@@ -587,7 +596,7 @@ export default function AdminDashboard({
                 >
                   {isUploadingLogo ? (
                     <>
-                      <RefreshCw size={16} className="animate-spin" /> Processing 4:4 Intake...
+                      <RefreshCw size={16} className="animate-spin" /> Processing Circular Intake...
                     </>
                   ) : (
                     <>
@@ -596,7 +605,7 @@ export default function AdminDashboard({
                   )}
                 </button>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5">
-                  Uploaded images are automatically formatted to a square 4:4 ratio.
+                  Uploaded images are automatically clipped and formatted into a clean circular shape.
                 </p>
               </div>
 
@@ -624,18 +633,18 @@ export default function AdminDashboard({
                   {logoInput && !logoInput.startsWith('data:') && (
                     <button
                       type="button"
-                      title="Convert external URL image to 4:4 ratio"
+                      title="Convert external URL image to circular shape"
                       onClick={async () => {
                         if (logoInput) {
                           setIsUploadingLogo(true);
-                          const processed = await processToSquare4x4(logoInput, cropMode);
+                          const processed = await processToCircularLogo(logoInput, cropMode);
                           setLogoInput(processed);
                           setIsUploadingLogo(false);
                         }
                       }}
                       className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-xs font-semibold rounded-lg shrink-0 transition-colors"
                     >
-                      Make 4:4
+                      Make Circular
                     </button>
                   )}
                 </div>
