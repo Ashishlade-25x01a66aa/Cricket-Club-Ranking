@@ -104,6 +104,19 @@ export async function uploadTeamLogo(formData: FormData): Promise<string> {
   return `/uploads/${filename}`;
 }
 
+export async function updateTeamLogo(id: string, logo: string | null) {
+  await checkAuth();
+  const updated = await prisma.team.update({
+    where: { id },
+    data: {
+      logo: logo ? logo.trim() : null,
+    },
+  });
+  revalidatePath('/');
+  revalidatePath('/admin');
+  return updated;
+}
+
 export async function bulkImportTeams(teams: any[]) {
   await checkAuth();
   

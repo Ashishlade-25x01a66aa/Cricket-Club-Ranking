@@ -2,9 +2,9 @@
 
 import { useState, useRef } from 'react';
 import { Team, ScoringConfig } from '@prisma/client';
-import { updateScoringConfig, updateTeam, deleteTeam, addTeam, uploadTeamLogo } from '../actions';
+import { updateScoringConfig, updateTeam, deleteTeam, addTeam, uploadTeamLogo, updateTeamLogo } from '../actions';
 import { rankTeams } from '@/lib/ranking';
-import { LogOut, Save, Plus, Trash2, Upload, FileDown, Copy, Image as ImageIcon, Camera, X, Check, Link as LinkIcon, RefreshCw } from 'lucide-react';
+import { LogOut, Save, Plus, Trash2, Upload, FileDown, Copy, Image as ImageIcon, Camera, X, Check, Link as LinkIcon, RefreshCw, Crop, Maximize2 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import * as XLSX from 'xlsx';
 
@@ -23,6 +23,8 @@ export default function AdminDashboard({
   // Logo editing modal state
   const [selectedTeamForLogo, setSelectedTeamForLogo] = useState<Team | null>(null);
   const [logoInput, setLogoInput] = useState('');
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
+  const [cropMode, setCropMode] = useState<'contain' | 'cover'>('contain');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,8 +59,9 @@ export default function AdminDashboard({
       await updateTeam(teams[index].id, teams[index]);
       setMessage('Team updated successfully!');
       setTimeout(() => setMessage(''), 3000);
-    } catch (e) {
-      setMessage('Error updating team.');
+    } catch (e: any) {
+      console.error('Error saving team:', e);
+      setMessage('Error updating team: ' + (e?.message || ''));
     }
     setIsSaving(false);
   };
@@ -92,27 +95,101 @@ export default function AdminDashboard({
     }
   };
 
+  // Process any image source onto a 4:4 (1:1 square) canvas
+  const processToSquare4x4 = (src: string, mode: 'contain' | 'cover' = 'contain'): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const size = 320; // 4:4 ratio square (320x320)
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(src);
+          return;
+        }
+
+        ctx.clearRect(0, 0, size, size);
+
+        const aspect = img.width / img.height;
+        let dWidth = size;
+        let dHeight = size;
+        let dx = 0;
+        let dy = 0;
+
+        if (mode === 'contain') {
+          // Fit entire logo within 4:4 square with gentle padding
+          const padding = size * 0.06;
+          const maxDim = size - padding * 2;
+          if (aspect > 1) {
+            dWidth = maxDim;
+            dHeight = maxDim / aspect;
+          } else {
+            dHeight = maxDim;
+            dWidth = maxDim * aspect;
+          }
+          dx = (size - dWidth) / 2;
+          dy = (size - dHeight) / 2;
+        } else {
+          // Fill (center crop to 4:4)
+          if (aspect > 1) {
+            dHeight = size;
+            dWidth = size * aspect;
+            dx = (size - dWidth) / 2;
+          } else {
+            dWidth = size;
+            dHeight = size / aspect;
+            dy = (size - dHeight) / 2;
+          }
+        }
+
+        ctx.drawImage(img, dx, dy, dWidth, dHeight);
+        resolve(canvas.toDataURL('image/png', 0.95));
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    });
+  };
+
   const openLogoModal = (team: Team) => {
     setSelectedTeamForLogo(team);
     setLogoInput(team.logo || '');
+    setRawImageSrc(null);
+    setCropMode('contain');
   };
 
   const handleLogoUpload = async (file: File) => {
     if (!file) return;
     setIsUploadingLogo(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const url = await uploadTeamLogo(formData);
-      setLogoInput(url);
-    } catch (err) {
-      // Fallback to data URL
       const reader = new FileReader();
-      reader.onload = () => {
-        setLogoInput(reader.result as string);
+      reader.onload = async () => {
+        const raw = reader.result as string;
+        setRawImageSrc(raw);
+        const processed = await processToSquare4x4(raw, cropMode);
+        setLogoInput(processed);
+        setIsUploadingLogo(false);
+      };
+      reader.onerror = () => {
+        alert('Could not read image file');
+        setIsUploadingLogo(false);
       };
       reader.readAsDataURL(file);
-    } finally {
+    } catch (err) {
+      console.error(err);
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const toggleCropMode = async (newMode: 'contain' | 'cover') => {
+    setCropMode(newMode);
+    const source = rawImageSrc || logoInput;
+    if (source) {
+      setIsUploadingLogo(true);
+      const processed = await processToSquare4x4(source, newMode);
+      setLogoInput(processed);
       setIsUploadingLogo(false);
     }
   };
@@ -122,17 +199,15 @@ export default function AdminDashboard({
     setIsSaving(true);
     try {
       const updatedLogo = logoInput.trim() || null;
-      await updateTeam(selectedTeamForLogo.id, {
-        ...selectedTeamForLogo,
-        logo: updatedLogo,
-      });
+      await updateTeamLogo(selectedTeamForLogo.id, updatedLogo);
 
       setTeams(prev => prev.map(t => t.id === selectedTeamForLogo.id ? { ...t, logo: updatedLogo } : t));
-      setMessage(`Logo updated for ${selectedTeamForLogo.team}!`);
+      setMessage(`Logo saved successfully for ${selectedTeamForLogo.team}!`);
       setTimeout(() => setMessage(''), 3000);
       setSelectedTeamForLogo(null);
-    } catch (err) {
-      alert('Failed to save team logo');
+    } catch (err: any) {
+      console.error('Error saving team logo:', err);
+      alert('Failed to save team logo: ' + (err?.message || 'Server error. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -425,16 +500,16 @@ export default function AdminDashboard({
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-5">
               
-              {/* Preview Box */}
+              {/* 4:4 Square Preview Box */}
               <div className="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900/60 p-4 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-                <div className="relative w-24 h-24 rounded-full border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 flex items-center justify-center overflow-hidden shadow-inner mb-2">
+                <div className="relative w-32 h-32 aspect-square rounded-2xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 flex items-center justify-center overflow-hidden shadow-sm mb-2 group">
                   {logoInput ? (
                     <img 
                       src={logoInput} 
-                      alt="Logo preview" 
-                      className="w-full h-full object-contain p-2"
+                      alt="4:4 Logo preview" 
+                      className={`w-full h-full p-2 transition-all duration-150 ${cropMode === 'cover' ? 'object-cover !p-0' : 'object-contain'}`}
                       onError={(e) => {
                         (e.currentTarget as HTMLElement).style.display = 'none';
                         (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
@@ -442,17 +517,57 @@ export default function AdminDashboard({
                     />
                   ) : null}
                   <div className={`flex flex-col items-center justify-center text-gray-400 ${logoInput ? 'hidden' : ''}`}>
-                    <ImageIcon size={32} />
-                    <span className="text-[10px] mt-1 font-semibold">No Logo</span>
+                    <ImageIcon size={36} />
+                    <span className="text-[11px] mt-1 font-semibold">No Logo</span>
+                  </div>
+                  {/* Aspect Ratio Badge */}
+                  <div className="absolute bottom-1 right-1 bg-black/70 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                    4:4
                   </div>
                 </div>
-                <span className="text-xs text-gray-500 font-medium">Logo Preview</span>
+
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    4:4 Ratio (Square)
+                  </span>
+                  <span className="text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold px-1.5 py-0.5 rounded">
+                    Auto-Formatted
+                  </span>
+                </div>
+
+                {/* 4:4 Ratio Crop Mode Selector */}
+                {logoInput && (
+                  <div className="w-full mt-3 bg-gray-200/70 dark:bg-gray-800 p-1 rounded-lg flex gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => toggleCropMode('contain')}
+                      className={`flex-1 py-1.5 px-2 rounded-md font-medium transition-all text-center ${
+                        cropMode === 'contain'
+                          ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs font-bold'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                      }`}
+                    >
+                      Fit Logo (4:4)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleCropMode('cover')}
+                      className={`flex-1 py-1.5 px-2 rounded-md font-medium transition-all text-center ${
+                        cropMode === 'cover'
+                          ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs font-bold'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                      }`}
+                    >
+                      Fill / Crop (4:4)
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Upload from Computer */}
+              {/* Upload from Computer with 4:4 intake */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
-                  Option 1: Upload Image File
+                  Upload Image File (Auto 4:4 Intake)
                 </label>
                 <input 
                   type="file" 
@@ -468,45 +583,76 @@ export default function AdminDashboard({
                   type="button"
                   disabled={isUploadingLogo}
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
                 >
                   {isUploadingLogo ? (
                     <>
-                      <RefreshCw size={16} className="animate-spin" /> Uploading image...
+                      <RefreshCw size={16} className="animate-spin" /> Processing 4:4 Intake...
                     </>
                   ) : (
                     <>
-                      <Upload size={16} /> Choose File from Computer (PNG, JPG, SVG)
+                      <Upload size={16} /> Choose Image from Computer
                     </>
                   )}
                 </button>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5">
+                  Uploaded images are automatically formatted to a square 4:4 ratio.
+                </p>
               </div>
 
               {/* Or URL input */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
-                  Option 2: Image URL
+                  Or Image Web URL
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                    <LinkIcon size={16} />
+                <div className="flex gap-2">
+                  <div className="relative flex-grow">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <LinkIcon size={16} />
+                    </div>
+                    <input 
+                      type="url" 
+                      placeholder="https://example.com/logo.png"
+                      value={logoInput}
+                      onChange={(e) => {
+                        setLogoInput(e.target.value);
+                        setRawImageSrc(e.target.value);
+                      }}
+                      className="w-full pl-9 pr-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
                   </div>
-                  <input 
-                    type="url" 
-                    placeholder="https://example.com/logo.png or /uploads/..."
-                    value={logoInput}
-                    onChange={(e) => setLogoInput(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  {logoInput && !logoInput.startsWith('data:') && (
+                    <button
+                      type="button"
+                      title="Convert external URL image to 4:4 ratio"
+                      onClick={async () => {
+                        if (logoInput) {
+                          setIsUploadingLogo(true);
+                          const processed = await processToSquare4x4(logoInput, cropMode);
+                          setLogoInput(processed);
+                          setIsUploadingLogo(false);
+                        }
+                      }}
+                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-xs font-semibold rounded-lg shrink-0 transition-colors"
+                    >
+                      Make 4:4
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* Clear button if logo exists */}
               {logoInput && (
-                <div className="flex justify-end">
+                <div className="flex justify-between items-center pt-1">
+                  <span className="text-[11px] text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
+                    <Check size={12} /> Ready to save
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setLogoInput('')}
+                    onClick={() => {
+                      setLogoInput('');
+                      setRawImageSrc(null);
+                    }}
                     className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 font-medium flex items-center gap-1"
                   >
                     <Trash2 size={13} /> Remove / Clear Logo
@@ -521,7 +667,7 @@ export default function AdminDashboard({
               <button 
                 type="button"
                 onClick={() => setSelectedTeamForLogo(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -529,9 +675,17 @@ export default function AdminDashboard({
                 type="button"
                 disabled={isSaving || isUploadingLogo}
                 onClick={handleSaveLogo}
-                className="flex items-center gap-1.5 px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                className="flex items-center gap-1.5 px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
               >
-                <Check size={16} /> {isSaving ? 'Saving...' : 'Save Logo'}
+                {isSaving ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" /> Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check size={16} /> Save Logo
+                  </>
+                )}
               </button>
             </div>
 
