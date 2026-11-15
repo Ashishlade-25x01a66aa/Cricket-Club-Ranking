@@ -3,6 +3,7 @@ import { rankTeams } from '@/lib/ranking';
 import Podium from '@/components/Podium';
 import LeaderboardTable from '@/components/LeaderboardTable';
 import HowItWorks from '@/components/HowItWorks';
+import PointsMatrix from '@/components/PointsMatrix';
 import Link from 'next/link';
 
 const prisma = new PrismaClient();
@@ -84,12 +85,13 @@ export default async function Home() {
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           
           {/* Table Area */}
-          <div className="w-full lg:w-3/4">
+          <div className="w-full lg:w-[63%] xl:w-[65%]">
             <LeaderboardTable teams={rankedTeams} />
           </div>
 
           {/* Side Panel */}
-          <div className="w-full lg:w-1/4">
+          <div className="w-full lg:w-[37%] xl:w-[35%] space-y-6">
+            <PointsMatrix config={activeConfig} />
             <HowItWorks config={activeConfig} />
           </div>
 
