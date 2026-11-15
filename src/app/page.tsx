@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client';
 import { rankTeams } from '@/lib/ranking';
 import Podium from '@/components/Podium';
 import LeaderboardTable from '@/components/LeaderboardTable';
-import HowItWorks from '@/components/HowItWorks';
 import PointsMatrix from '@/components/PointsMatrix';
 import Link from 'next/link';
 
@@ -28,13 +27,13 @@ export default async function Home() {
 
   const numTeams = teams.length;
   const numLeagues = new Set(teams.map(t => t.league)).size;
-  const lastUpdated = new Date().toLocaleString('en-US', { 
+  const lastUpdated = new Date().toLocaleString('en-US', {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   });
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 selection:bg-blue-500 selection:text-white">
-      
+
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -46,8 +45,8 @@ export default async function Home() {
               BEST CLUB <span className="text-blue-600 dark:text-blue-400">Leaderboard</span>
             </h1>
           </div>
-          <Link 
-            href="/admin" 
+          <Link
+            href="/admin"
             className="text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             Admin Login
@@ -56,7 +55,7 @@ export default async function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
+
         {/* Hero Stats */}
         <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 mb-8">
           <div>
@@ -83,16 +82,15 @@ export default async function Home() {
 
         {/* Main Content Layout */}
         <div className="flex flex-col lg:flex-row gap-8 items-start">
-          
+
           {/* Table Area */}
           <div className="w-full lg:w-[63%] xl:w-[65%]">
             <LeaderboardTable teams={rankedTeams} />
           </div>
 
           {/* Side Panel */}
-          <div className="w-full lg:w-[37%] xl:w-[35%] space-y-6">
+          <div className="w-full lg:w-[37%] xl:w-[35%]">
             <PointsMatrix config={activeConfig} />
-            <HowItWorks config={activeConfig} />
           </div>
 
         </div>

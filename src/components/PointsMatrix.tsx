@@ -23,7 +23,7 @@ export default function PointsMatrix({ config }: PointsMatrixProps) {
   const runnerUpPoints = config?.runnerUpPoints ?? 0.3;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden sticky top-20">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-800 dark:to-indigo-800 text-white p-4 font-bold text-base flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -118,3 +118,4 @@ export default function PointsMatrix({ config }: PointsMatrixProps) {
     </div>
   );
 }
+
